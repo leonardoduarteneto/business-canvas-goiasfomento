@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Model Canvas Interativo</title>
+    <!-- Tailwind CSS para Estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React e ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel para transpilar JSX no browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Componente de Ícone (Wrapper para Lucide)
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const [iconHtml, setIconHtml] = useState("");
+            
+            useEffect(() => {
+                const svg = lucide.createIcons({
+                    icons: { [name]: lucide[name] }
+                });
+            }, []);
+
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const BMCBlock = ({ title, iconName, description, value, onChange, className = "" }) => {
+            return (
+                <div className={`flex flex-col border-2 border-gray-200 rounded-xl p-4 bg-white hover:border-blue-400 transition-colors ${className}`}>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 text-blue-700 font-bold uppercase text-xs md:text-sm tracking-wider">
+                            <i data-lucide={iconName} className="w-5 h-5"></i>
+                            <h3>{title}</h3>
+                        </div>
+                        <div className="group relative">
+                            <i data-lucide="info" className="w-4 h-4 text-gray-400 cursor-help"></i>
+                            <div className="absolute right-0 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none shadow-xl border border-gray-700">
+                                {description}
+                            </div>
+                        </div>
+                    </div>
+                    <textarea
+                        className="flex-grow w-full resize-none bg-transparent focus:outline-none text-gray-700 text-sm leading-relaxed min-h-[100px]"
+                        placeholder="Clique para preencher..."
+                        value={value}
+                        onChange={(e) => onChange(e.target.value)}
+                    />
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [data, setData] = useState({
+                partners: "", activities: "", resources: "", propositions: "",
+                relationships: "", channels: "", segments: "", costs: "", revenue: ""
+            });
+            const [lastSaved, setLastSaved] = useState(null);
+
+            useEffect(() => {
+                const saved = localStorage.getItem('my-bmc-data');
+                if (saved) setData(JSON.parse(saved));
+                lucide.createIcons();
+            }, []);
+
+            useEffect(() => {
+                lucide.createIcons();
+            }, [data]);
+
+            const handleSave = () => {
+                localStorage.setItem('my-bmc-data', JSON.stringify(data));
+                setLastSaved(new Date().toLocaleTimeString());
+            };
+
+            const handleClear = () => {
+                if (window.confirm("Limpar todo o Canvas?")) {
+                    setData({
+                        partners: "", activities: "", resources: "", propositions: "",
+                        relationships: "", channels: "", segments: "", costs: "", revenue: ""
+                    });
+                    localStorage.removeItem('my-bmc-data');
+                }
+            };
+
+            return (
+                <div className="min-h-screen p-4 md:p-8">
+                    <div className="max-w-7xl mx-auto">
+                        <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                            <div>
+                                <h1 className="text-3xl font-extrabold text-gray-900">Business Model Canvas</h1>
+                                <p className="text-gray-500 text-sm">Estrutura estratégica para o teu modelo de negócio</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {lastSaved && <span className="text-xs text-green-600 font-medium">Salvo: {lastSaved}</span>}
+                                <button onClick={handleClear} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-100">
+                                    <i data-lucide="trash-2" className="w-4 h-4"></i> Limpar
+                                </button>
+                                <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-semibold">
+                                    <i data-lucide="save" className="w-4 h-4"></i> Salvar
+                                </button>
+                            </div>
+                        </header>
+
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 min-h-[700px]">
+                            <BMCBlock className="md:row-span-2" title="Parcerias" iconName="users" description="Principais parceiros e fornecedores." value={data.partners} onChange={(v) => setData({...data, partners: v})} />
+                            
+                            <div className="md:row-span-2 flex flex-col gap-3">
+                                <BMCBlock className="flex-1" title="Atividades" iconName="settings" description="Ações essenciais para o negócio." value={data.activities} onChange={(v) => setData({...data, activities: v})} />
+                                <BMCBlock className="flex-1" title="Recursos" iconName="briefcase" description="Ativos físicos, humanos ou intelectuais." value={data.resources} onChange={(v) => setData({...data, resources: v})} />
+                            </div>
+
+                            <BMCBlock className="md:row-span-2 bg-blue-50 border-blue-200" title="Proposta de Valor" iconName="gift" description="Que valor entregamos ao cliente?" value={data.propositions} onChange={(v) => setData({...data, propositions: v})} />
+
+                            <div className="md:row-span-2 flex flex-col gap-3">
+                                <BMCBlock className="flex-1" title="Relacionamento" iconName="heart" description="Tipo de relação com os segmentos." value={data.relationships} onChange={(v) => setData({...data, relationships: v})} />
+                                <BMCBlock className="flex-1" title="Canais" iconName="truck" description="Como alcançamos os clientes?" value={data.channels} onChange={(v) => setData({...data, channels: v})} />
+                            </div>
+
+                            <BMCBlock className="md:row-span-2" title="Segmentos" iconName="users-round" description="Para quem criamos valor?" value={data.segments} onChange={(v) => setData({...data, segments: v})} />
+
+                            <BMCBlock className="md:col-span-2 md:col-start-1 md:col-end-4" title="Custos" iconName="credit-card" description="Custos mais importantes." value={data.costs} onChange={(v) => setData({...data, costs: v})} />
+                            <BMCBlock className="md:col-span-2 md:col-start-4 md:col-end-6" title="Receitas" iconName="trending-up" description="Como o negócio gera dinheiro?" value={data.revenue} onChange={(v) => setData({...data, revenue: v})} />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
