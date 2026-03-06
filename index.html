@@ -19,8 +19,8 @@
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
+        // Disponibiliza o SDK globalmente de forma segura
         window.FirebaseSDK = { initializeApp, getFirestore, doc, setDoc, onSnapshot, getAuth, signInAnonymously, onAuthStateChanged };
-        // Notifica o React que o SDK está pronto
         window.dispatchEvent(new Event('firebase-sdk-ready'));
     </script>
     <style>
@@ -64,7 +64,7 @@
           storageBucket: "bmc-goiasfomento.firebasestorage.app",
           messagingSenderId: "1093447863440",
           appId: "1:1093447863440:web:f6f11d4593231f16435c15"
-        };
+       };
         // =========================================================
 
         const BMCBlock = ({ title, iconName, description, value, onChange, className = "" }) => {
@@ -109,6 +109,7 @@
 
             const getFirebaseConfig = useCallback(() => {
                 if (MY_FIREBASE_CONFIG) return MY_FIREBASE_CONFIG;
+                // Proteção contra variáveis de ambiente ausentes
                 if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                     try { return JSON.parse(__firebase_config); } catch (e) { return null; }
                 }
@@ -117,6 +118,8 @@
 
             const initCloud = useCallback(async () => {
                 const config = getFirebaseConfig();
+                
+                // Se não houver config, pára o loading e usa local
                 if (!config || !window.FirebaseSDK) {
                     setIsInitialLoading(false);
                     return;
@@ -141,23 +144,28 @@
                         setIsSyncing(true);
                     }
                 } catch (err) {
-                    console.error("Erro Firebase:", err);
-                    setIsInitialLoading(false);
+                    console.error("Firebase falhou:", err);
+                    setIsInitialLoading(false); // Garante que a app carrega mesmo com erro de rede/config
                 }
             }, [getFirebaseConfig]);
 
             useEffect(() => {
+                // Carregar LocalStorage imediatamente para evitar delay visual
                 const saved = localStorage.getItem('my-bmc-data');
                 if (saved) setData(JSON.parse(saved));
                 
-                // Tenta inicializar. Se o SDK não estiver pronto, ouve o evento.
+                // Tenta inicializar Firebase
                 if (window.FirebaseSDK) {
                     initCloud();
                 } else {
                     window.addEventListener('firebase-sdk-ready', initCloud);
                 }
 
-                const timer = setTimeout(() => lucide.createIcons(), 500);
+                // Renderizar ícones iniciais
+                const timer = setTimeout(() => {
+                    if (window.lucide) window.lucide.createIcons();
+                }, 500);
+
                 return () => {
                     window.removeEventListener('firebase-sdk-ready', initCloud);
                     clearTimeout(timer);
@@ -176,7 +184,7 @@
                         if (docSnap.exists()) {
                             setData(docSnap.data());
                         }
-                    }, (error) => console.error("Erro na escuta:", error));
+                    }, (error) => console.error("Erro na escuta Firestore:", error));
 
                     return () => unsubscribe();
                 } catch (err) {
@@ -185,7 +193,7 @@
             }, [user, workspaceId]);
 
             useEffect(() => {
-                lucide.createIcons();
+                if (window.lucide) window.lucide.createIcons();
             }, [data, isSyncing, showSyncModal, isInitialLoading]);
 
             const handleUpdateData = (newData) => {
@@ -194,7 +202,7 @@
                     const { getFirestore, doc, setDoc } = window.FirebaseSDK;
                     const db = getFirestore();
                     setDoc(doc(db, 'artifacts', appId, 'public', 'data', workspaceId), newData)
-                        .catch(err => console.error("Erro ao salvar:", err));
+                        .catch(err => console.error("Erro ao guardar na nuvem:", err));
                 } else {
                     localStorage.setItem('my-bmc-data', JSON.stringify(newData));
                     setLastSaved(new Date().toLocaleTimeString());
@@ -204,12 +212,12 @@
             const enableCloudSync = async () => {
                 const config = getFirebaseConfig();
                 if (!config) {
-                    alert("Por favor, configure as suas credenciais Firebase no código (MY_FIREBASE_CONFIG) primeiro.");
+                    alert("Atenção: Para usar a nuvem, você deve inserir suas credenciais Firebase no código (MY_FIREBASE_CONFIG).");
                     return;
                 }
                 
                 if (!isAuthReady) {
-                    alert("Ainda a ligar ao servidor... Aguarde um momento.");
+                    alert("Aguardando ligação ao Firebase... Verifique se as credenciais estão corretas.");
                     return;
                 }
 
@@ -218,7 +226,6 @@
                     const newUrl = new URL(window.location.href);
                     newUrl.searchParams.set('ws', newId);
                     
-                    // Atualiza o estado antes da UI para o modal ter o link correto
                     setWorkspaceId(newId);
                     setIsSyncing(true);
                     
@@ -229,15 +236,15 @@
                     window.history.pushState({}, '', newUrl);
                     setShowSyncModal(true);
                 } catch (err) {
-                    console.error(err);
-                    alert("Erro ao criar sincronização. Verifique as Regras de Segurança no Firebase.");
+                    console.error("Erro ao ativar nuvem:", err);
+                    alert("Erro ao criar sincronização. Verifique as Regras de Segurança (Rules) no seu console do Firebase.");
                 }
             };
 
             const exportPDF = () => window.print();
 
             const exportCSV = () => {
-                const headers = ["Bloco", "Conteudo"];
+                const headers = ["Bloco", "Conteúdo"];
                 const rows = [
                     ["Parcerias", data.partners], ["Atividades", data.activities], ["Recursos", data.resources],
                     ["Proposta Valor", data.propositions], ["Relacionamento", data.relationships],
@@ -247,7 +254,7 @@
                                   rows.map(e => e.map(val => `"${(val || '').replace(/"/g, '""')}"`).join(",")).join("\n");
                 const link = document.createElement("a");
                 link.setAttribute("href", encodeURI(csvContent));
-                link.setAttribute("download", `bmc_${new Date().toISOString().slice(0,10)}.csv`);
+                link.setAttribute("download", `bmc_export.csv`);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -264,7 +271,7 @@
                                         <i data-lucide="check" className="w-3 h-3"></i> Sincronizado
                                     </span>}
                                 </h1>
-                                <p className="text-gray-500 text-sm italic">Organize a sua estratégia e aceda no Notion.</p>
+                                <p className="text-gray-500 text-sm italic">Organize a sua estratégia de negócio de forma visual.</p>
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-2 no-print">
@@ -272,9 +279,9 @@
                                     <button 
                                         onClick={enableCloudSync} 
                                         disabled={isInitialLoading && !MY_FIREBASE_CONFIG}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm font-bold shadow-md ${isInitialLoading ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm font-bold shadow-md ${isInitialLoading && !MY_FIREBASE_CONFIG ? 'bg-gray-200 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                                     >
-                                        {isInitialLoading ? <div className="loading-spinner"></div> : <i data-lucide="cloud" className="w-4 h-4"></i>}
+                                        {isInitialLoading && !MY_FIREBASE_CONFIG ? <div className="loading-spinner"></div> : <i data-lucide="cloud" className="w-4 h-4"></i>}
                                         Ativar Sincronização
                                     </button>
                                 )}
@@ -314,26 +321,24 @@
                             <BMCBlock className="md:col-span-2" title="Receitas" iconName="trending-up" description="Fontes de receita." value={data.revenue} onChange={(v) => handleUpdateData({...data, revenue: v})} />
                         </div>
                         
-                        {!isSyncing && lastSaved && <div className="mt-4 text-[10px] text-gray-400 text-right no-print">Última alteração local: {lastSaved}</div>}
+                        {!isSyncing && lastSaved && <div className="mt-4 text-[10px] text-gray-400 text-right no-print italic">Última alteração local guardada às {lastSaved}</div>}
                     </div>
 
                     {showSyncModal && (
                         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] no-print">
-                            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
-                                        <i data-lucide="cloud" className="w-6 h-6"></i>
-                                    </div>
-                                    <h3 className="text-xl font-bold">Sincronização Ativa!</h3>
+                            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100 scale-in">
+                                <div className="flex items-center gap-3 mb-4 text-blue-600">
+                                    <i data-lucide="cloud" className="w-8 h-8"></i>
+                                    <h3 className="text-xl font-bold">Nuvem Ativada!</h3>
                                 </div>
-                                <p className="text-gray-600 text-sm mb-4 leading-relaxed">
-                                    Para ver estes dados no Notion do seu trabalho, use o URL específico que foi gerado:
+                                <p className="text-gray-600 text-sm mb-4">
+                                    Use este link para sincronizar o seu Canvas no Notion do trabalho:
                                 </p>
-                                <div className="bg-blue-50 p-4 rounded-xl break-all text-xs font-mono text-blue-700 mb-6 border border-blue-100 select-all font-bold">
+                                <div className="bg-blue-50 p-4 rounded-xl break-all text-xs font-mono text-blue-700 mb-6 border border-blue-100 select-all font-bold cursor-pointer" title="Clique para selecionar tudo">
                                     {window.location.href}
                                 </div>
                                 <button onClick={() => setShowSyncModal(false)} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg transition-all active:scale-95">
-                                    Continuar no Notion
+                                    Fechar e Continuar
                                 </button>
                             </div>
                         </div>
