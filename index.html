@@ -1,568 +1,907 @@
 <!DOCTYPE html>
-<html lang="pt-pt">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Business Model Canvas Interativo</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Business Model Canvas Interativo</title>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- React e ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script type="module">
+    import {
+      initializeApp,
+      getApps,
+      getApp
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 
-    <!-- Babel para transformar JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      onSnapshot,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    import {
+      getAuth,
+      signInAnonymously,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import {
-            initializeApp,
-            getApps,
-            getApp
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    window.FirebaseSDK = {
+      initializeApp,
+      getApps,
+      getApp,
+      getFirestore,
+      doc,
+      setDoc,
+      onSnapshot,
+      serverTimestamp,
+      getAuth,
+      signInAnonymously,
+      onAuthStateChanged
+    };
 
-        import {
-            getFirestore,
-            doc,
-            setDoc,
-            onSnapshot
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    window.dispatchEvent(new Event("firebase-initialized"));
+  </script>
 
-        import {
-            getAuth,
-            signInAnonymously,
-            onAuthStateChanged
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-        window.FirebaseSDK = {
-            initializeApp,
-            getApps,
-            getApp,
-            getFirestore,
-            doc,
-            setDoc,
-            onSnapshot,
-            getAuth,
-            signInAnonymously,
-            onAuthStateChanged
-        };
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --blue: #1d4ed8;
+      --blue-soft: #eff6ff;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+      --shadow: 0 10px 30px rgba(2, 6, 23, 0.06);
+    }
 
-        window.dispatchEvent(new Event("firebase-initialized"));
-    </script>
+    * {
+      box-sizing: border-box;
+    }
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(59,130,246,0.06), transparent 30%),
+        radial-gradient(circle at top right, rgba(16,185,129,0.04), transparent 28%),
+        var(--bg);
+      color: #0f172a;
+    }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-        }
+    .glass {
+      background: rgba(255,255,255,0.72);
+      backdrop-filter: blur(10px);
+    }
 
-        @media print {
-            .no-print {
-                display: none !important;
-            }
+    .loading-spinner {
+      border: 3px solid #e5e7eb;
+      border-top: 3px solid #2563eb;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
 
-            body {
-                background: white !important;
-                padding: 0 !important;
-            }
+    .bmc-textarea {
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 transparent;
+    }
 
-            .max-w-7xl {
-                max-width: 100% !important;
-                width: 100% !important;
-                margin: 0 !important;
-            }
+    .bmc-textarea::-webkit-scrollbar {
+      width: 8px;
+    }
 
-            .grid {
-                gap: 1px !important;
-                border: 1px solid #e5e7eb;
-            }
+    .bmc-textarea::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 8px;
+    }
 
-            textarea {
-                border: none !important;
-                overflow: hidden !important;
-                min-height: 80px !important;
-            }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
 
-            .rounded-xl {
-                border-radius: 0 !important;
-                border: 1px solid #e5e7eb !important;
-            }
-        }
+    @media print {
+      body {
+        background: #fff !important;
+      }
 
-        .loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
+      .no-print {
+        display: none !important;
+      }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
+      .print-shell {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+      }
+
+      .print-grid {
+        gap: 4px !important;
+      }
+
+      .print-card {
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .print-title {
+        font-size: 26px !important;
+      }
+
+      textarea {
+        overflow: visible !important;
+        resize: none !important;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div id="root">
-        <div class="min-h-screen flex items-center justify-center">
-            <div class="flex flex-col items-center gap-4">
-                <div class="loading-spinner"></div>
-                <p class="text-gray-500 font-medium tracking-tight">A carregar interface...</p>
-            </div>
-        </div>
+  <div id="root">
+    <div class="min-h-screen flex items-center justify-center">
+      <div class="flex flex-col items-center gap-4">
+        <div class="loading-spinner"></div>
+        <p class="text-slate-500 font-medium">A carregar interface...</p>
+      </div>
     </div>
+  </div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
-        const FIREBASE_CONFIG = {
-            apiKey: "SUA_API_KEY",
-            authDomain: "bmc-goiasfomento.firebaseapp.com",
-            projectId: "bmc-goiasfomento",
-            storageBucket: "bmc-goiasfomento.firebasestorage.app",
-            messagingSenderId: "1093447863440",
-            appId: "1:1093447863440:web:f6f11d4593231f16435c15"
+    const FIREBASE_CONFIG = {
+      apiKey: "SUA_API_KEY",
+      authDomain: "bmc-goiasfomento.firebaseapp.com",
+      projectId: "bmc-goiasfomento",
+      storageBucket: "bmc-goiasfomento.firebasestorage.app",
+      messagingSenderId: "1093447863440",
+      appId: "1:1093447863440:web:f6f11d4593231f16435c15"
+    };
+
+    const APP_ID = "bmc-app-default";
+    const LOCAL_KEY = "my-bmc-data-v2";
+
+    const EMPTY_DATA = {
+      partners: "",
+      activities: "",
+      resources: "",
+      propositions: "",
+      relationships: "",
+      channels: "",
+      segments: "",
+      costs: "",
+      revenue: ""
+    };
+
+    function cn(...classes) {
+      return classes.filter(Boolean).join(" ");
+    }
+
+    function safeParse(json, fallback = null) {
+      try {
+        return JSON.parse(json);
+      } catch {
+        return fallback;
+      }
+    }
+
+    function generateId() {
+      return Math.random().toString(36).slice(2, 12);
+    }
+
+    function useDebouncedEffect(effect, deps, delay) {
+      const cleanupRef = useRef();
+
+      useEffect(() => {
+        const timer = setTimeout(() => {
+          cleanupRef.current = effect();
+        }, delay);
+
+        return () => {
+          clearTimeout(timer);
+          if (typeof cleanupRef.current === "function") {
+            cleanupRef.current();
+          }
         };
+      }, [...deps, delay]);
+    }
 
-        const EMPTY_DATA = {
-            partners: "",
-            activities: "",
-            resources: "",
-            propositions: "",
-            relationships: "",
-            channels: "",
-            segments: "",
-            costs: "",
-            revenue: ""
-        };
+    const BLOCKS = [
+      {
+        key: "partners",
+        title: "Parcerias",
+        icon: "users",
+        description: "Principais parceiros, fornecedores e alianças estratégicas.",
+        className: "md:row-span-2"
+      },
+      {
+        key: "activities",
+        title: "Atividades",
+        icon: "zap",
+        description: "As ações essenciais que sustentam a operação e a entrega de valor.",
+        className: "flex-1"
+      },
+      {
+        key: "resources",
+        title: "Recursos",
+        icon: "box",
+        description: "Recursos críticos: equipa, tecnologia, marca, capital, processos.",
+        className: "flex-1"
+      },
+      {
+        key: "propositions",
+        title: "Proposta de Valor",
+        icon: "gift",
+        description: "O principal valor entregue ao cliente. Por que ele escolhe você?",
+        className: "md:row-span-2"
+      },
+      {
+        key: "relationships",
+        title: "Relacionamento",
+        icon: "heart",
+        description: "Como a empresa se relaciona e retém clientes.",
+        className: "flex-1"
+      },
+      {
+        key: "channels",
+        title: "Canais",
+        icon: "send",
+        description: "Como a proposta de valor chega até o cliente.",
+        className: "flex-1"
+      },
+      {
+        key: "segments",
+        title: "Segmentos",
+        icon: "target",
+        description: "Quem são os clientes ou públicos prioritários.",
+        className: "md:row-span-2"
+      },
+      {
+        key: "costs",
+        title: "Custos",
+        icon: "pie-chart",
+        description: "Custos mais relevantes para operar e crescer.",
+        className: "md:col-span-3"
+      },
+      {
+        key: "revenue",
+        title: "Receitas",
+        icon: "trending-up",
+        description: "Fontes de receita, monetização e retorno financeiro.",
+        className: "md:col-span-2"
+      }
+    ];
 
-        const BMCBlock = ({ title, iconName, description, value, onChange, className = "" }) => (
-            <div className={`flex flex-col border-2 border-gray-200 rounded-xl p-4 bg-white hover:border-blue-400 transition-colors shadow-sm ${className}`}>
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-blue-700 font-bold uppercase text-[10px] md:text-xs tracking-wider">
-                        <i data-lucide={iconName} className="w-4 h-4 md:w-5 md:h-5"></i>
-                        <h3>{title}</h3>
-                    </div>
+    function StatusBadge({ status }) {
+      const map = {
+        idle: {
+          label: "Local",
+          cls: "bg-slate-100 text-slate-600 border-slate-200"
+        },
+        saving: {
+          label: "Salvando...",
+          cls: "bg-amber-50 text-amber-700 border-amber-200"
+        },
+        saved: {
+          label: "Salvo",
+          cls: "bg-green-50 text-green-700 border-green-200"
+        },
+        error: {
+          label: "Erro ao salvar",
+          cls: "bg-red-50 text-red-700 border-red-200"
+        }
+      };
 
-                    <div className="group relative no-print">
-                        <i data-lucide="info" className="w-4 h-4 text-gray-400 cursor-help hover:text-blue-500"></i>
-                        <div className="absolute right-0 w-64 p-3 bg-gray-800 text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-xl border border-gray-700">
-                            {description}
-                        </div>
-                    </div>
-                </div>
+      const current = map[status] || map.idle;
 
-                <textarea
-                    className="flex-grow w-full resize-none bg-transparent focus:outline-none text-gray-700 text-sm leading-relaxed min-h-[100px]"
-                    placeholder="Escreva aqui..."
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                />
+      return (
+        <span className={cn(
+          "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border",
+          current.cls
+        )}>
+          {current.label}
+        </span>
+      );
+    }
+
+    function BMCBlock({ title, iconName, description, value, onChange, className = "", highlight = false }) {
+      return (
+        <div
+          className={cn(
+            "print-card flex flex-col rounded-2xl border p-4 md:p-5 bg-white shadow-sm transition-all duration-200",
+            "hover:shadow-md hover:-translate-y-[1px]",
+            highlight ? "border-blue-200 bg-blue-50/60" : "border-slate-200",
+            className
+          )}
+        >
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className={cn(
+                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
+                highlight ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"
+              )}>
+                <i data-lucide={iconName} className="w-4 h-4"></i>
+              </div>
+
+              <div className="min-w-0">
+                <h3 className="text-xs md:text-sm font-extrabold uppercase tracking-[0.12em] text-slate-800">
+                  {title}
+                </h3>
+                <p className="text-[11px] md:text-xs text-slate-500 leading-relaxed mt-1">
+                  {description}
+                </p>
+              </div>
             </div>
-        );
+          </div>
 
-        const App = () => {
-            const [data, setData] = useState(EMPTY_DATA);
-            const [user, setUser] = useState(null);
-            const [workspaceId, setWorkspaceId] = useState(null);
-            const [isSyncing, setIsSyncing] = useState(false);
-            const [showSyncModal, setShowSyncModal] = useState(false);
-            const [isAuthReady, setIsAuthReady] = useState(false);
-            const [isAppLoading, setIsAppLoading] = useState(true);
+          <textarea
+            className="bmc-textarea flex-1 w-full min-h-[135px] md:min-h-[150px] resize-none rounded-xl border border-slate-200 bg-white/80 px-3 py-3 text-sm leading-6 text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+            placeholder="Escreva aqui..."
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      );
+    }
 
-            const appId = "bmc-app-default";
+    function App() {
+      const [data, setData] = useState(EMPTY_DATA);
+      const [user, setUser] = useState(null);
+      const [workspaceId, setWorkspaceId] = useState(null);
+      const [isSyncing, setIsSyncing] = useState(false);
+      const [showSyncModal, setShowSyncModal] = useState(false);
+      const [isAuthReady, setIsAuthReady] = useState(false);
+      const [isAppLoading, setIsAppLoading] = useState(true);
+      const [saveStatus, setSaveStatus] = useState("idle");
+      const [copyFeedback, setCopyFeedback] = useState("");
+      const [firebaseError, setFirebaseError] = useState("");
+      const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
-            const getWorkspaceDocRef = useCallback((db, id) => {
-                // caminho válido: coleção / documento / coleção / documento
-                return window.FirebaseSDK.doc(db, "artifacts", appId, "workspaces", id);
-            }, [appId]);
+      const isInitialRemoteLoad = useRef(true);
+      const suppressNextSave = useRef(false);
 
-            const initCloud = useCallback(async () => {
-                if (!window.FirebaseSDK) return;
+      const sharedUrl = useMemo(() => {
+        const url = new URL(window.location.href);
+        if (workspaceId) url.searchParams.set("ws", workspaceId);
+        return url.toString();
+      }, [workspaceId]);
 
-                try {
-                    const {
-                        initializeApp,
-                        getApps,
-                        getApp,
-                        getAuth,
-                        signInAnonymously,
-                        onAuthStateChanged,
-                        getFirestore
-                    } = window.FirebaseSDK;
+      const getFirebaseApp = useCallback(() => {
+        const { initializeApp, getApps, getApp } = window.FirebaseSDK;
+        return getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
+      }, []);
 
-                    const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
-                    const auth = getAuth(app);
-                    getFirestore(app);
+      const getDb = useCallback(() => {
+        const { getFirestore } = window.FirebaseSDK;
+        const app = getFirebaseApp();
+        return getFirestore(app);
+      }, [getFirebaseApp]);
 
-                    onAuthStateChanged(auth, (u) => {
-                        setUser(u || null);
-                        setIsAuthReady(true);
-                        setIsAppLoading(false);
-                    });
+      const getWorkspaceDocRef = useCallback((id) => {
+        const { doc } = window.FirebaseSDK;
+        const db = getDb();
+        return doc(db, "artifacts", APP_ID, "workspaces", id);
+      }, [getDb]);
 
-                    if (!auth.currentUser) {
-                        await signInAnonymously(auth);
-                    } else {
-                        setUser(auth.currentUser);
-                        setIsAuthReady(true);
-                        setIsAppLoading(false);
-                    }
+      const persistLocal = useCallback((payload) => {
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
+      }, []);
 
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const id = urlParams.get("ws");
+      const loadLocal = useCallback(() => {
+        const raw = localStorage.getItem(LOCAL_KEY);
+        const parsed = safeParse(raw, EMPTY_DATA);
+        return { ...EMPTY_DATA, ...(parsed || {}) };
+      }, []);
 
-                    if (id) {
-                        setWorkspaceId(id);
-                        setIsSyncing(true);
-                    }
-                } catch (err) {
-                    console.error("Firebase Error:", err);
-                    setIsAppLoading(false);
-                }
-            }, []);
+      const initCloud = useCallback(async () => {
+        if (!window.FirebaseSDK) return;
 
-            useEffect(() => {
-                const saved = localStorage.getItem("my-bmc-data");
-                if (saved) {
-                    try {
-                        const parsed = JSON.parse(saved);
-                        setData({ ...EMPTY_DATA, ...parsed });
-                    } catch (err) {
-                        console.error("Erro ao ler localStorage:", err);
-                    }
-                }
+        try {
+          const {
+            getAuth,
+            signInAnonymously,
+            onAuthStateChanged
+          } = window.FirebaseSDK;
 
-                if (window.FirebaseSDK) {
-                    initCloud();
-                } else {
-                    window.addEventListener("firebase-initialized", initCloud);
-                }
+          const app = getFirebaseApp();
+          const auth = getAuth(app);
 
-                const timeout = setTimeout(() => setIsAppLoading(false), 3000);
+          onAuthStateChanged(auth, (u) => {
+            setUser(u || null);
+            setIsAuthReady(true);
+            setIsAppLoading(false);
+          });
 
-                return () => {
-                    window.removeEventListener("firebase-initialized", initCloud);
-                    clearTimeout(timeout);
-                };
-            }, [initCloud]);
+          if (!auth.currentUser) {
+            await signInAnonymously(auth);
+          } else {
+            setUser(auth.currentUser);
+            setIsAuthReady(true);
+            setIsAppLoading(false);
+          }
 
-            useEffect(() => {
-                if (!user || !workspaceId || !window.FirebaseSDK) return;
+          const params = new URLSearchParams(window.location.search);
+          const ws = params.get("ws");
+          if (ws) {
+            setWorkspaceId(ws);
+            setIsSyncing(true);
+            setSaveStatus("saved");
+          }
+        } catch (err) {
+          console.error("Firebase init error:", err);
+          setFirebaseError("Falha ao inicializar o Firebase.");
+          setIsAppLoading(false);
+        }
+      }, [getFirebaseApp]);
 
-                let unsubscribe = null;
+      useEffect(() => {
+        setData(loadLocal());
 
-                try {
-                    const { getApp, getFirestore, onSnapshot } = window.FirebaseSDK;
-                    const app = getApp();
-                    const db = getFirestore(app);
-                    const docRef = getWorkspaceDocRef(db, workspaceId);
+        if (window.FirebaseSDK) {
+          initCloud();
+        } else {
+          window.addEventListener("firebase-initialized", initCloud);
+        }
 
-                    unsubscribe = onSnapshot(
-                        docRef,
-                        (docSnap) => {
-                            if (docSnap.exists()) {
-                                const remoteData = docSnap.data() || {};
-                                setData({ ...EMPTY_DATA, ...remoteData });
-                            }
-                        },
-                        (err) => {
-                            console.error("Firestore Error:", err);
-                        }
-                    );
-                } catch (err) {
-                    console.error("Erro ao iniciar listener:", err);
-                }
+        const timeout = setTimeout(() => setIsAppLoading(false), 3500);
 
-                return () => {
-                    if (unsubscribe) unsubscribe();
-                };
-            }, [user, workspaceId, getWorkspaceDocRef]);
-
-            useEffect(() => {
-                if (window.lucide) {
-                    window.lucide.createIcons();
-                }
-            }, [data, isSyncing, showSyncModal, isAppLoading]);
-
-            const handleUpdateData = (newData) => {
-                setData(newData);
-
-                if (isSyncing && user && workspaceId && window.FirebaseSDK) {
-                    try {
-                        const { getApp, getFirestore, setDoc } = window.FirebaseSDK;
-                        const app = getApp();
-                        const db = getFirestore(app);
-                        const docRef = getWorkspaceDocRef(db, workspaceId);
-
-                        setDoc(docRef, newData).catch((e) => {
-                            console.error("Save Error:", e);
-                        });
-                    } catch (err) {
-                        console.error("Erro ao salvar na nuvem:", err);
-                    }
-                } else {
-                    localStorage.setItem("my-bmc-data", JSON.stringify(newData));
-                }
-            };
-
-            const enableCloudSync = async () => {
-                if (!isAuthReady) {
-                    alert("Ainda a ligar ao servidor... Tente novamente em segundos.");
-                    return;
-                }
-
-                try {
-                    const newId = Math.random().toString(36).substring(2, 15);
-                    const newUrl = new URL(window.location.href);
-                    newUrl.searchParams.set("ws", newId);
-
-                    const { getApp, getFirestore, setDoc } = window.FirebaseSDK;
-                    const app = getApp();
-                    const db = getFirestore(app);
-                    const docRef = getWorkspaceDocRef(db, newId);
-
-                    await setDoc(docRef, data);
-
-                    setWorkspaceId(newId);
-                    setIsSyncing(true);
-                    window.history.pushState({}, "", newUrl.toString());
-                    setShowSyncModal(true);
-                } catch (err) {
-                    console.error(err);
-                    alert("Erro ao ativar nuvem. Verifique as Regras de Segurança no seu Firebase.");
-                }
-            };
-
-            const exportCSV = () => {
-                const headers = ["Bloco", "Conteúdo"];
-                const rows = [
-                    ["Parcerias", data.partners],
-                    ["Atividades", data.activities],
-                    ["Recursos", data.resources],
-                    ["Proposta Valor", data.propositions],
-                    ["Relacionamento", data.relationships],
-                    ["Canais", data.channels],
-                    ["Segmentos", data.segments],
-                    ["Custos", data.costs],
-                    ["Receitas", data.revenue]
-                ];
-
-                const csvContent =
-                    "data:text/csv;charset=utf-8,\uFEFF" +
-                    headers.join(",") +
-                    "\n" +
-                    rows
-                        .map((e) =>
-                            e.map((val) => `"${(val || "").replace(/"/g, '""')}"`).join(",")
-                        )
-                        .join("\n");
-
-                const link = document.createElement("a");
-                link.setAttribute("href", encodeURI(csvContent));
-                link.setAttribute("download", `bmc_export_${new Date().toISOString().split("T")[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            };
-
-            if (isAppLoading) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                        <div className="flex flex-col items-center gap-4">
-                            <div className="loading-spinner"></div>
-                            <p className="text-gray-400 text-sm font-medium">A sincronizar...</p>
-                        </div>
-                    </div>
-                );
-            }
-
-            return (
-                <div className="min-h-screen p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto">
-                        <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                            <div>
-                                <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
-                                    Business Model Canvas
-                                    {isSyncing && (
-                                        <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full font-bold">
-                                            LIVE
-                                        </span>
-                                    )}
-                                </h1>
-                                <p className="text-slate-500 text-sm">
-                                    Modele a sua estratégia e aceda no Notion.
-                                </p>
-                            </div>
-
-                            <div className="flex items-center gap-2 no-print">
-                                {!isSyncing ? (
-                                    <button
-                                        onClick={enableCloudSync}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-bold shadow-lg shadow-blue-100"
-                                    >
-                                        <i data-lucide="cloud" className="w-4 h-4"></i>
-                                        ATIVAR SINCRONIZAÇÃO
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={() => setShowSyncModal(true)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-all text-sm font-bold"
-                                    >
-                                        <i data-lucide="share-2" className="w-4 h-4"></i>
-                                        VER LINK
-                                    </button>
-                                )}
-
-                                <div className="h-8 w-px bg-gray-200 mx-1"></div>
-
-                                <button
-                                    onClick={exportCSV}
-                                    className="p-2 bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 shadow-sm"
-                                    title="Exportar Excel"
-                                >
-                                    <i data-lucide="table" className="w-5 h-5 text-green-600"></i>
-                                </button>
-
-                                <button
-                                    onClick={() => window.print()}
-                                    className="p-2 bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 shadow-sm"
-                                    title="PDF"
-                                >
-                                    <i data-lucide="printer" className="w-5 h-5"></i>
-                                </button>
-                            </div>
-                        </header>
-
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 min-h-[750px]">
-                            <BMCBlock
-                                className="md:row-span-2"
-                                title="Parcerias"
-                                iconName="users"
-                                description="Principais parceiros e fornecedores."
-                                value={data.partners}
-                                onChange={(v) => handleUpdateData({ ...data, partners: v })}
-                            />
-
-                            <div className="md:row-span-2 flex flex-col gap-3">
-                                <BMCBlock
-                                    className="flex-1"
-                                    title="Atividades"
-                                    iconName="zap"
-                                    description="Ações essenciais."
-                                    value={data.activities}
-                                    onChange={(v) => handleUpdateData({ ...data, activities: v })}
-                                />
-                                <BMCBlock
-                                    className="flex-1"
-                                    title="Recursos"
-                                    iconName="box"
-                                    description="Ativos necessários."
-                                    value={data.resources}
-                                    onChange={(v) => handleUpdateData({ ...data, resources: v })}
-                                />
-                            </div>
-
-                            <BMCBlock
-                                className="md:row-span-2 bg-blue-50/50 border-blue-100"
-                                title="Proposta de Valor"
-                                iconName="gift"
-                                description="Que valor entregamos?"
-                                value={data.propositions}
-                                onChange={(v) => handleUpdateData({ ...data, propositions: v })}
-                            />
-
-                            <div className="md:row-span-2 flex flex-col gap-3">
-                                <BMCBlock
-                                    className="flex-1"
-                                    title="Relacionamento"
-                                    iconName="heart"
-                                    description="Relação com clientes."
-                                    value={data.relationships}
-                                    onChange={(v) => handleUpdateData({ ...data, relationships: v })}
-                                />
-                                <BMCBlock
-                                    className="flex-1"
-                                    title="Canais"
-                                    iconName="send"
-                                    description="Como entregamos o valor?"
-                                    value={data.channels}
-                                    onChange={(v) => handleUpdateData({ ...data, channels: v })}
-                                />
-                            </div>
-
-                            <BMCBlock
-                                className="md:row-span-2"
-                                title="Segmentos"
-                                iconName="target"
-                                description="Quem são os clientes?"
-                                value={data.segments}
-                                onChange={(v) => handleUpdateData({ ...data, segments: v })}
-                            />
-
-                            <BMCBlock
-                                className="md:col-span-3"
-                                title="Custos"
-                                iconName="pie-chart"
-                                description="Custos mais importantes."
-                                value={data.costs}
-                                onChange={(v) => handleUpdateData({ ...data, costs: v })}
-                            />
-
-                            <BMCBlock
-                                className="md:col-span-2"
-                                title="Receitas"
-                                iconName="trending-up"
-                                description="Fontes de receita."
-                                value={data.revenue}
-                                onChange={(v) => handleUpdateData({ ...data, revenue: v })}
-                            />
-                        </div>
-                    </div>
-
-                    {showSyncModal && (
-                        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100] no-print text-center">
-                            <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100">
-                                <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                    <i data-lucide="cloud-check" className="w-10 h-10"></i>
-                                </div>
-
-                                <h3 className="text-xl font-bold mb-2 text-slate-900">
-                                    Workspace Criado!
-                                </h3>
-
-                                <p className="text-slate-500 text-sm mb-6">
-                                    Utilize este URL no Notion do trabalho para aceder aos mesmos dados:
-                                </p>
-
-                                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6 font-mono text-[10px] text-blue-700 break-all select-all font-bold">
-                                    {window.location.href}
-                                </div>
-
-                                <button
-                                    onClick={() => setShowSyncModal(false)}
-                                    className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
-                                >
-                                    Concluir
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
+        return () => {
+          window.removeEventListener("firebase-initialized", initCloud);
+          clearTimeout(timeout);
         };
+      }, [initCloud, loadLocal]);
 
-        const root = ReactDOM.createRoot(document.getElementById("root"));
-        root.render(<App />);
-    </script>
+      useEffect(() => {
+        if (!user || !workspaceId || !window.FirebaseSDK) return;
+
+        let unsubscribe = null;
+
+        try {
+          const { onSnapshot } = window.FirebaseSDK;
+          const docRef = getWorkspaceDocRef(workspaceId);
+
+          unsubscribe = onSnapshot(
+            docRef,
+            (snap) => {
+              if (!snap.exists()) return;
+
+              const remote = snap.data() || {};
+              const merged = { ...EMPTY_DATA, ...remote.data };
+
+              suppressNextSave.current = true;
+              setData(merged);
+              persistLocal(merged);
+
+              if (remote.updatedAt) {
+                setLastUpdatedAt(new Date());
+              }
+
+              if (isInitialRemoteLoad.current) {
+                isInitialRemoteLoad.current = false;
+              }
+
+              setSaveStatus("saved");
+            },
+            (err) => {
+              console.error("onSnapshot error:", err);
+              setSaveStatus("error");
+              setFirebaseError("Não foi possível sincronizar com a nuvem.");
+            }
+          );
+        } catch (err) {
+          console.error("Listener error:", err);
+          setSaveStatus("error");
+        }
+
+        return () => {
+          if (unsubscribe) unsubscribe();
+        };
+      }, [user, workspaceId, getWorkspaceDocRef, persistLocal]);
+
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      }, [data, showSyncModal, isAppLoading, saveStatus, copyFeedback]);
+
+      useEffect(() => {
+        persistLocal(data);
+        if (!isSyncing) {
+          setSaveStatus("idle");
+        }
+      }, [data, persistLocal, isSyncing]);
+
+      useDebouncedEffect(() => {
+        if (!isSyncing || !user || !workspaceId || !window.FirebaseSDK) return;
+        if (suppressNextSave.current) {
+          suppressNextSave.current = false;
+          return;
+        }
+
+        let cancelled = false;
+
+        async function saveRemote() {
+          try {
+            setSaveStatus("saving");
+
+            const { setDoc, serverTimestamp } = window.FirebaseSDK;
+            const docRef = getWorkspaceDocRef(workspaceId);
+
+            await setDoc(docRef, {
+              data,
+              updatedAt: serverTimestamp(),
+              updatedBy: user.uid || "anonymous"
+            }, { merge: true });
+
+            if (!cancelled) {
+              setSaveStatus("saved");
+              setLastUpdatedAt(new Date());
+            }
+          } catch (err) {
+            console.error("Save remote error:", err);
+            if (!cancelled) {
+              setSaveStatus("error");
+              setFirebaseError("Erro ao salvar na nuvem. Verifique as regras do Firestore.");
+            }
+          }
+        }
+
+        saveRemote();
+
+        return () => {
+          cancelled = true;
+        };
+      }, [data, isSyncing, user, workspaceId, getWorkspaceDocRef], 700);
+
+      const updateField = useCallback((key, value) => {
+        setData((prev) => ({ ...prev, [key]: value }));
+      }, []);
+
+      const enableCloudSync = async () => {
+        if (!window.FirebaseSDK) {
+          alert("Firebase não carregado.");
+          return;
+        }
+
+        if (!isAuthReady) {
+          alert("Ainda conectando ao servidor. Tente novamente em instantes.");
+          return;
+        }
+
+        try {
+          const newId = generateId();
+          const { setDoc, serverTimestamp } = window.FirebaseSDK;
+          const docRef = getWorkspaceDocRef(newId);
+
+          await setDoc(docRef, {
+            data,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+            updatedBy: user?.uid || "anonymous"
+          }, { merge: true });
+
+          const url = new URL(window.location.href);
+          url.searchParams.set("ws", newId);
+          window.history.pushState({}, "", url.toString());
+
+          setWorkspaceId(newId);
+          setIsSyncing(true);
+          setSaveStatus("saved");
+          setShowSyncModal(true);
+        } catch (err) {
+          console.error("enableCloudSync error:", err);
+          setSaveStatus("error");
+          alert("Erro ao ativar sincronização. Verifique suas regras de segurança do Firebase.");
+        }
+      };
+
+      const copyLink = async () => {
+        try {
+          await navigator.clipboard.writeText(sharedUrl);
+          setCopyFeedback("Link copiado");
+          setTimeout(() => setCopyFeedback(""), 1800);
+        } catch {
+          setCopyFeedback("Falha ao copiar");
+          setTimeout(() => setCopyFeedback(""), 1800);
+        }
+      };
+
+      const exportCSV = () => {
+        const headers = ["Bloco", "Conteúdo"];
+        const rows = [
+          ["Parcerias", data.partners],
+          ["Atividades", data.activities],
+          ["Recursos", data.resources],
+          ["Proposta de Valor", data.propositions],
+          ["Relacionamento", data.relationships],
+          ["Canais", data.channels],
+          ["Segmentos", data.segments],
+          ["Custos", data.costs],
+          ["Receitas", data.revenue]
+        ];
+
+        const csv =
+          "data:text/csv;charset=utf-8,\uFEFF" +
+          headers.join(",") +
+          "\n" +
+          rows
+            .map((row) =>
+              row.map((v) => `"${String(v || "").replace(/"/g, '""')}"`).join(",")
+            )
+            .join("\n");
+
+        const link = document.createElement("a");
+        link.href = encodeURI(csv);
+        link.download = `bmc_export_${new Date().toISOString().split("T")[0]}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const clearLocal = () => {
+        const ok = window.confirm("Deseja limpar o Canvas local?");
+        if (!ok) return;
+
+        setData(EMPTY_DATA);
+        persistLocal(EMPTY_DATA);
+      };
+
+      const filledCount = Object.values(data).filter(Boolean).length;
+
+      if (isAppLoading) {
+        return (
+          <div className="min-h-screen flex items-center justify-center bg-slate-50">
+            <div className="flex flex-col items-center gap-4">
+              <div className="loading-spinner"></div>
+              <p className="text-slate-500 text-sm font-medium">A carregar o Business Model Canvas...</p>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="min-h-screen p-4 md:p-8">
+          <div className="print-shell max-w-7xl mx-auto">
+            <div className="glass rounded-[28px] border border-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] overflow-hidden">
+              <div className="px-5 md:px-8 pt-6 md:pt-8 pb-5 border-b border-slate-200/80 bg-white/70">
+                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                      <h1 className="print-title text-2xl md:text-4xl font-extrabold tracking-tight text-slate-900">
+                        Business Model Canvas
+                      </h1>
+
+                      {isSyncing && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-600 text-white">
+                          LIVE
+                        </span>
+                      )}
+
+                      <StatusBadge status={saveStatus} />
+                    </div>
+
+                    <p className="text-slate-600 text-sm md:text-base">
+                      Estruture a estratégia, sincronize na nuvem e exporte quando necessário.
+                    </p>
+
+                    {firebaseError && (
+                      <p className="text-red-600 text-xs mt-2 font-medium">
+                        {firebaseError}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col md:items-end gap-3">
+                    <div className="flex flex-wrap gap-2 no-print">
+                      {!isSyncing ? (
+                        <button
+                          onClick={enableCloudSync}
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-semibold shadow-lg shadow-blue-100 hover:bg-blue-700 transition"
+                        >
+                          <i data-lucide="cloud" className="w-4 h-4"></i>
+                          Ativar sincronização
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => setShowSyncModal(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-white text-blue-700 font-semibold hover:bg-blue-50 transition"
+                          >
+                            <i data-lucide="share-2" className="w-4 h-4"></i>
+                            Compartilhar
+                          </button>
+
+                          <button
+                            onClick={copyLink}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition"
+                          >
+                            <i data-lucide="copy" className="w-4 h-4"></i>
+                            {copyFeedback || "Copiar link"}
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        onClick={exportCSV}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition"
+                      >
+                        <i data-lucide="table" className="w-4 h-4 text-green-600"></i>
+                        CSV
+                      </button>
+
+                      <button
+                        onClick={() => window.print()}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition"
+                      >
+                        <i data-lucide="printer" className="w-4 h-4"></i>
+                        PDF
+                      </button>
+
+                      <button
+                        onClick={clearLocal}
+                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition"
+                      >
+                        <i data-lucide="eraser" className="w-4 h-4"></i>
+                        Limpar
+                      </button>
+                    </div>
+
+                    <div className="text-xs text-slate-500 flex flex-wrap gap-x-4 gap-y-1">
+                      <span>Blocos preenchidos: <strong className="text-slate-700">{filledCount}/9</strong></span>
+                      <span>Workspace: <strong className="text-slate-700">{workspaceId || "local"}</strong></span>
+                      <span>Última atualização: <strong className="text-slate-700">{lastUpdatedAt ? lastUpdatedAt.toLocaleTimeString("pt-BR") : "—"}</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-5 md:px-8 py-5 md:py-7 bg-slate-50/70">
+                <div className="print-grid grid grid-cols-1 md:grid-cols-5 gap-4 min-h-[780px]">
+                  <BMCBlock
+                    title="Parcerias"
+                    iconName="users"
+                    description="Principais parceiros, fornecedores e alianças estratégicas."
+                    value={data.partners}
+                    onChange={(v) => updateField("partners", v)}
+                    className="md:row-span-2"
+                  />
+
+                  <div className="md:row-span-2 flex flex-col gap-4">
+                    <BMCBlock
+                      title="Atividades"
+                      iconName="zap"
+                      description="As ações essenciais que sustentam a operação e a entrega de valor."
+                      value={data.activities}
+                      onChange={(v) => updateField("activities", v)}
+                      className="flex-1"
+                    />
+                    <BMCBlock
+                      title="Recursos"
+                      iconName="box"
+                      description="Recursos críticos: equipa, tecnologia, marca, capital, processos."
+                      value={data.resources}
+                      onChange={(v) => updateField("resources", v)}
+                      className="flex-1"
+                    />
+                  </div>
+
+                  <BMCBlock
+                    title="Proposta de Valor"
+                    iconName="gift"
+                    description="O principal valor entregue ao cliente. Por que ele escolhe você?"
+                    value={data.propositions}
+                    onChange={(v) => updateField("propositions", v)}
+                    className="md:row-span-2"
+                    highlight={true}
+                  />
+
+                  <div className="md:row-span-2 flex flex-col gap-4">
+                    <BMCBlock
+                      title="Relacionamento"
+                      iconName="heart"
+                      description="Como a empresa se relaciona e retém clientes."
+                      value={data.relationships}
+                      onChange={(v) => updateField("relationships", v)}
+                      className="flex-1"
+                    />
+                    <BMCBlock
+                      title="Canais"
+                      iconName="send"
+                      description="Como a proposta de valor chega até o cliente."
+                      value={data.channels}
+                      onChange={(v) => updateField("channels", v)}
+                      className="flex-1"
+                    />
+                  </div>
+
+                  <BMCBlock
+                    title="Segmentos"
+                    iconName="target"
+                    description="Quem são os clientes ou públicos prioritários."
+                    value={data.segments}
+                    onChange={(v) => updateField("segments", v)}
+                    className="md:row-span-2"
+                  />
+
+                  <BMCBlock
+                    title="Custos"
+                    iconName="pie-chart"
+                    description="Custos mais relevantes para operar e crescer."
+                    value={data.costs}
+                    onChange={(v) => updateField("costs", v)}
+                    className="md:col-span-3"
+                  />
+
+                  <BMCBlock
+                    title="Receitas"
+                    iconName="trending-up"
+                    description="Fontes de receita, monetização e retorno financeiro."
+                    value={data.revenue}
+                    onChange={(v) => updateField("revenue", v)}
+                    className="md:col-span-2"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {showSyncModal && (
+              <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100] no-print">
+                <div className="w-full max-w-lg rounded-[28px] bg-white border border-slate-200 shadow-2xl p-7">
+                  <div className="w-16 h-16 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center mb-5 mx-auto">
+                    <i data-lucide="cloud-check" className="w-8 h-8"></i>
+                  </div>
+
+                  <div className="text-center">
+                    <h3 className="text-2xl font-extrabold text-slate-900 mb-2">
+                      Workspace sincronizado
+                    </h3>
+                    <p className="text-slate-500 text-sm mb-6">
+                      Use este link para abrir exatamente o mesmo canvas em outro ambiente.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-[12px] text-slate-700 break-all font-mono mb-4">
+                    {sharedUrl}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button
+                      onClick={copyLink}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                    >
+                      <i data-lucide="copy" className="w-4 h-4"></i>
+                      {copyFeedback || "Copiar link"}
+                    </button>
+
+                    <button
+                      onClick={() => setShowSyncModal(false)}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition"
+                    >
+                      Fechar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<App />);
+  </script>
 </body>
 </html>
