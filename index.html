@@ -43,7 +43,6 @@
         // =========================================================
         // CONFIGURAÇÃO DO FIREBASE (COLE AS SUAS CREDENCIAIS AQUI)
         // =========================================================
-        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyADm510HtxUFgGJIDenCxjCBWMSYhCIex0",
             authDomain: "bmc-goiasfomento.firebaseapp.com",
@@ -52,7 +51,6 @@
             messagingSenderId: "1093447863440",
             appId: "1:1093447863440:web:f6f11d4593231f16435c15"
         };
-
         // =========================================================
 
         const BMCBlock = ({ title, iconName, description, value, onChange, className = "" }) => {
@@ -90,8 +88,22 @@
             const [isSyncing, setIsSyncing] = useState(false);
             const [showSyncModal, setShowSyncModal] = useState(false);
             const [lastSaved, setLastSaved] = useState(null);
+            const [isAuthReady, setIsAuthReady] = useState(false);
 
             const appId = 'bmc-app-default';
+
+            // Obter configuração consolidada
+            const getFirebaseConfig = () => {
+                if (MY_FIREBASE_CONFIG) return MY_FIREBASE_CONFIG;
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    try {
+                        return JSON.parse(__firebase_config);
+                    } catch (e) {
+                        return null;
+                    }
+                }
+                return null;
+            };
 
             useEffect(() => {
                 const saved = localStorage.getItem('my-bmc-data');
@@ -99,11 +111,10 @@
                 setTimeout(() => lucide.createIcons(), 100);
 
                 const initCloud = async () => {
-                    // Tenta usar a config manual ou a do ambiente se existir
-                    const config = MY_FIREBASE_CONFIG || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
+                    const config = getFirebaseConfig();
                     
                     if (!config || typeof window.FirebaseSDK === 'undefined') {
-                        console.warn("Firebase não configurado. Sincronização desativada.");
+                        console.warn("Firebase não configurado.");
                         return;
                     }
 
@@ -113,7 +124,10 @@
                         const auth = getAuth(app);
                         
                         await signInAnonymously(auth);
-                        onAuthStateChanged(auth, setUser);
+                        onAuthStateChanged(auth, (u) => {
+                            setUser(u);
+                            setIsAuthReady(true);
+                        });
 
                         const urlParams = new URLSearchParams(window.location.search);
                         const id = urlParams.get('ws');
@@ -122,7 +136,7 @@
                             setIsSyncing(true);
                         }
                     } catch (err) {
-                        console.error("Erro Firebase:", err);
+                        console.error("Erro ao inicializar Firebase:", err);
                     }
                 };
 
@@ -141,11 +155,11 @@
                         if (docSnap.exists()) {
                             setData(docSnap.data());
                         }
-                    }, (error) => console.error("Erro Sync:", error));
+                    }, (error) => console.error("Erro na escuta de dados:", error));
 
                     return () => unsubscribe();
                 } catch (err) {
-                    console.error("Erro listener:", err);
+                    console.error("Erro ao configurar sincronização:", err);
                 }
             }, [user, workspaceId]);
 
@@ -158,7 +172,8 @@
                 if (isSyncing && user && workspaceId && typeof window.FirebaseSDK !== 'undefined') {
                     const { getFirestore, doc, setDoc } = window.FirebaseSDK;
                     const db = getFirestore();
-                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', workspaceId), newData);
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', workspaceId), newData)
+                        .catch(err => console.error("Erro ao salvar na nuvem:", err));
                 } else {
                     localStorage.setItem('my-bmc-data', JSON.stringify(newData));
                     setLastSaved(new Date().toLocaleTimeString());
@@ -166,25 +181,60 @@
             };
 
             const enableCloudSync = () => {
-                const config = MY_FIREBASE_CONFIG || (typeof __firebase_config !== 'undefined' ? __firebase_config : null);
+                const config = getFirebaseConfig();
                 if (!config) {
-                    alert("Por favor, configure as suas credenciais Firebase no código antes de ativar a nuvem.");
+                    alert("Por favor, configure as suas credenciais Firebase no código (variável MY_FIREBASE_CONFIG) antes de ativar a nuvem.");
                     return;
                 }
+                
+                if (!isAuthReady) {
+                    alert("A aguardar ligação ao Firebase... Tente novamente em segundos.");
+                    return;
+                }
+
                 const newId = Math.random().toString(36).substring(2, 15);
                 const newUrl = new URL(window.location.href);
                 newUrl.searchParams.set('ws', newId);
                 window.history.pushState({}, '', newUrl);
+                
                 setWorkspaceId(newId);
                 setIsSyncing(true);
                 setShowSyncModal(true);
                 
                 const { getFirestore, doc, setDoc } = window.FirebaseSDK;
                 const db = getFirestore();
-                setDoc(doc(db, 'artifacts', appId, 'public', 'data', newId), data);
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', newId), data)
+                    .catch(err => alert("Erro ao criar workspace na nuvem. Verifique as suas Regras de Segurança no Firebase."));
             };
 
             const exportPDF = () => window.print();
+
+            const exportCSV = () => {
+                const headers = ["Bloco", "Conteúdo"];
+                const rows = [
+                    ["Parcerias Principais", data.partners],
+                    ["Atividades-Chave", data.activities],
+                    ["Recursos Principais", data.resources],
+                    ["Propostas de Valor", data.propositions],
+                    ["Relacionamento com Clientes", data.relationships],
+                    ["Canais", data.channels],
+                    ["Segmentos de Clientes", data.segments],
+                    ["Estrutura de Custos", data.costs],
+                    ["Fluxos de Receita", data.revenue]
+                ];
+
+                const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+                    + headers.join(",") + "\n"
+                    + rows.map(e => e.map(val => `"${(val || '').replace(/"/g, '""')}"`).join(",")).join("\n");
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `bmc_export_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
 
             return (
                 <div className="min-h-screen p-4 md:p-8">
@@ -209,8 +259,17 @@
                                         <i data-lucide="link" className="w-4 h-4"></i> Link do Workspace
                                     </button>
                                 )}
-                                <button onClick={exportPDF} title="PDF" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-200">
-                                    <i data-lucide="file-text" className="w-5 h-5"></i>
+                                
+                                <div className="h-6 w-px bg-gray-200 mx-1"></div>
+
+                                <button onClick={exportCSV} title="Exportar para Excel" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-200 flex items-center gap-2 px-3">
+                                    <i data-lucide="table" className="w-4 h-4 text-green-600"></i>
+                                    <span className="hidden sm:inline text-xs font-bold text-gray-700">Excel</span>
+                                </button>
+
+                                <button onClick={exportPDF} title="Exportar para PDF" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-200 flex items-center gap-2 px-3">
+                                    <i data-lucide="file-text" className="w-4 h-4 text-red-500"></i>
+                                    <span className="hidden sm:inline text-xs font-bold text-gray-700">PDF</span>
                                 </button>
                             </div>
                         </header>
@@ -230,6 +289,8 @@
                             <BMCBlock className="md:col-span-3" title="Custos" iconName="credit-card" description="Custos mais importantes." value={data.costs} onChange={(v) => handleUpdateData({...data, costs: v})} />
                             <BMCBlock className="md:col-span-2" title="Receitas" iconName="trending-up" description="Fontes de receita." value={data.revenue} onChange={(v) => handleUpdateData({...data, revenue: v})} />
                         </div>
+                        
+                        {!isSyncing && lastSaved && <div className="mt-4 text-[10px] text-gray-400 text-right no-print">Guardado localmente às {lastSaved}</div>}
                     </div>
 
                     {showSyncModal && (
