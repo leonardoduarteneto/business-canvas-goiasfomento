@@ -16,6 +16,16 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
         body { font-family: 'Inter', sans-serif; }
+
+        /* Otimização para Impressão (PDF) */
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; padding: 0 !important; }
+            .max-w-7xl { max-width: 100% !important; width: 100% !important; margin: 0 !important; }
+            .grid { gap: 1px !important; border: 1px solid #e5e7eb; }
+            textarea { border: none !important; overflow: hidden !important; }
+            .rounded-xl { border-radius: 0 !important; border: 1px solid #e5e7eb !important; }
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -23,31 +33,18 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-        
-        // Componente de Ícone (Wrapper para Lucide)
-        const Icon = ({ name, size = 20, className = "" }) => {
-            const [iconHtml, setIconHtml] = useState("");
-            
-            useEffect(() => {
-                const svg = lucide.createIcons({
-                    icons: { [name]: lucide[name] }
-                });
-            }, []);
-
-            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
-        };
 
         const BMCBlock = ({ title, iconName, description, value, onChange, className = "" }) => {
             return (
                 <div className={`flex flex-col border-2 border-gray-200 rounded-xl p-4 bg-white hover:border-blue-400 transition-colors ${className}`}>
                     <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2 text-blue-700 font-bold uppercase text-xs md:text-sm tracking-wider">
-                            <i data-lucide={iconName} className="w-5 h-5"></i>
+                        <div className="flex items-center gap-2 text-blue-700 font-bold uppercase text-xs tracking-wider">
+                            <i data-lucide={iconName} className="w-4 h-4 md:w-5 md:h-5"></i>
                             <h3>{title}</h3>
                         </div>
-                        <div className="group relative">
+                        <div className="group relative no-print">
                             <i data-lucide="info" className="w-4 h-4 text-gray-400 cursor-help"></i>
-                            <div className="absolute right-0 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none shadow-xl border border-gray-700">
+                            <div className="absolute right-0 w-64 p-3 bg-gray-800 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-xl border border-gray-700">
                                 {description}
                             </div>
                         </div>
@@ -72,7 +69,7 @@
             useEffect(() => {
                 const saved = localStorage.getItem('my-bmc-data');
                 if (saved) setData(JSON.parse(saved));
-                lucide.createIcons();
+                setTimeout(() => lucide.createIcons(), 100);
             }, []);
 
             useEffect(() => {
@@ -94,20 +91,64 @@
                 }
             };
 
+            const exportPDF = () => {
+                window.print();
+            };
+
+            const exportCSV = () => {
+                const headers = ["Bloco", "Conteudo"];
+                const rows = [
+                    ["Parcerias Principais", data.partners],
+                    ["Atividades-Chave", data.activities],
+                    ["Recursos Principais", data.resources],
+                    ["Propostas de Valor", data.propositions],
+                    ["Relacionamento com Clientes", data.relationships],
+                    ["Canais", data.channels],
+                    ["Segmentos de Clientes", data.segments],
+                    ["Estrutura de Custos", data.costs],
+                    ["Fluxos de Receita", data.revenue]
+                ];
+
+                let csvContent = "data:text/csv;charset=utf-8," 
+                    + headers.join(",") + "\n"
+                    + rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "business_model_canvas.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
             return (
                 <div className="min-h-screen p-4 md:p-8">
                     <div className="max-w-7xl mx-auto">
-                        <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                        <header className="flex flex-col lg:flex-row lg:items-center justify-between mb-8 gap-4">
                             <div>
                                 <h1 className="text-3xl font-extrabold text-gray-900">Business Model Canvas</h1>
                                 <p className="text-gray-500 text-sm">Estrutura estratégica para o teu modelo de negócio</p>
                             </div>
-                            <div className="flex items-center gap-3">
-                                {lastSaved && <span className="text-xs text-green-600 font-medium">Salvo: {lastSaved}</span>}
-                                <button onClick={handleClear} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-100">
-                                    <i data-lucide="trash-2" className="w-4 h-4"></i> Limpar
+                            
+                            <div className="flex flex-wrap items-center gap-2 no-print">
+                                {lastSaved && <span className="text-xs text-green-600 font-medium mr-2">Salvo: {lastSaved}</span>}
+                                
+                                <button onClick={handleClear} title="Limpar Tudo" className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-100">
+                                    <i data-lucide="trash-2" className="w-5 h-5"></i>
                                 </button>
-                                <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-semibold">
+
+                                <div className="h-6 w-px bg-gray-200 mx-1"></div>
+
+                                <button onClick={exportCSV} className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold shadow-sm">
+                                    <i data-lucide="table" className="w-4 h-4 text-green-600"></i> Excel/Sheets
+                                </button>
+
+                                <button onClick={exportPDF} className="flex items-center gap-2 px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold shadow-sm">
+                                    <i data-lucide="file-text" className="w-4 h-4 text-red-500"></i> PDF
+                                </button>
+
+                                <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md font-semibold text-sm">
                                     <i data-lucide="save" className="w-4 h-4"></i> Salvar
                                 </button>
                             </div>
@@ -130,8 +171,8 @@
 
                             <BMCBlock className="md:row-span-2" title="Segmentos" iconName="users-round" description="Para quem criamos valor?" value={data.segments} onChange={(v) => setData({...data, segments: v})} />
 
-                            <BMCBlock className="md:col-span-2 md:col-start-1 md:col-end-4" title="Custos" iconName="credit-card" description="Custos mais importantes." value={data.costs} onChange={(v) => setData({...data, costs: v})} />
-                            <BMCBlock className="md:col-span-2 md:col-start-4 md:col-end-6" title="Receitas" iconName="trending-up" description="Como o negócio gera dinheiro?" value={data.revenue} onChange={(v) => setData({...data, revenue: v})} />
+                            <BMCBlock className="md:col-span-3" title="Custos" iconName="credit-card" description="Custos mais importantes." value={data.costs} onChange={(v) => setData({...data, costs: v})} />
+                            <BMCBlock className="md:col-span-2" title="Receitas" iconName="trending-up" description="Como o negócio gera dinheiro?" value={data.revenue} onChange={(v) => setData({...data, revenue: v})} />
                         </div>
                     </div>
                 </div>
