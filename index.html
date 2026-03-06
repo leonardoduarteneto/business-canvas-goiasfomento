@@ -9,21 +9,21 @@
     <!-- React e ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel -->
+    <!-- Babel para transformar JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs - Carregamento isolado para evitar conflitos de sintaxe -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // Módulos devem ser atribuídos ao window após o import bem-sucedido
+        // Atribui ao window para que o React consiga aceder
         window.FirebaseSDK = { initializeApp, getFirestore, doc, setDoc, onSnapshot, getAuth, signInAnonymously, onAuthStateChanged };
-        window.dispatchEvent(new Event('firebase-sdk-ready'));
-        console.log("Firebase SDK carregado com sucesso.");
+        // Dispara evento para o React saber que pode começar
+        window.dispatchEvent(new Event('firebase-initialized'));
     </script>
 
     <style>
@@ -53,7 +53,7 @@
         <div class="min-h-screen flex items-center justify-center">
             <div class="flex flex-col items-center gap-4">
                 <div class="loading-spinner"></div>
-                <p class="text-gray-500 font-medium">A carregar interface...</p>
+                <p class="text-gray-500 font-medium tracking-tight">A carregar interface...</p>
             </div>
         </div>
     </div>
@@ -61,7 +61,7 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback } = React;
 
-        // Configuração Unificada
+        // CONFIGURAÇÃO ÚNICA - NÃO ALTERE O NOME DESTA VARIÁVEL
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyADm510HtxUFgGJIDenCxjCBWMSYhCIex0",
             authDomain: "bmc-goiasfomento.firebaseapp.com",
@@ -108,27 +108,12 @@
 
             const appId = 'bmc-app-default';
 
-            const getFirebaseConfig = useCallback(() => {
-                if (FIREBASE_CONFIG && typeof FIREBASE_CONFIG === 'object') return FIREBASE_CONFIG;
-                return null;
-            }, []);
-
             const initCloud = useCallback(async () => {
-                if (!window.FirebaseSDK) {
-                    console.log("A aguardar SDK do Firebase...");
-                    return;
-                }
-
-                const config = getFirebaseConfig();
-                if (!config) {
-                    console.log("Modo offline: Configuração não encontrada.");
-                    setIsAppLoading(false);
-                    return;
-                }
+                if (!window.FirebaseSDK) return;
 
                 try {
                     const { initializeApp, getAuth, signInAnonymously, onAuthStateChanged } = window.FirebaseSDK;
-                    const app = initializeApp(config);
+                    const app = initializeApp(FIREBASE_CONFIG);
                     const auth = getAuth(app);
                     
                     await signInAnonymously(auth);
@@ -148,25 +133,30 @@
                     console.error("Firebase Error:", err);
                     setIsAppLoading(false);
                 }
-            }, [getFirebaseConfig]);
+            }, []);
 
             useEffect(() => {
+                // Carregar localmente primeiro
                 const saved = localStorage.getItem('my-bmc-data');
                 if (saved) setData(JSON.parse(saved));
 
+                // Aguarda o SDK estar disponível
                 if (window.FirebaseSDK) {
                     initCloud();
                 } else {
-                    window.addEventListener('firebase-sdk-ready', initCloud);
+                    window.addEventListener('firebase-initialized', initCloud);
                 }
 
+                // Fallback se o Firebase demorar muito
                 const timeout = setTimeout(() => setIsAppLoading(false), 3000);
+                
                 return () => {
-                    window.removeEventListener('firebase-sdk-ready', initCloud);
+                    window.removeEventListener('firebase-initialized', initCloud);
                     clearTimeout(timeout);
                 };
             }, [initCloud]);
 
+            // Listener para dados da nuvem
             useEffect(() => {
                 if (!user || !workspaceId || !window.FirebaseSDK) return;
                 try {
@@ -175,7 +165,7 @@
                     const docRef = doc(db, 'artifacts', appId, 'public', 'data', workspaceId);
                     const unsubscribe = onSnapshot(docRef, (docSnap) => {
                         if (docSnap.exists()) setData(docSnap.data());
-                    }, (err) => console.error("Firestore Listen Error:", err));
+                    }, (err) => console.error("Firestore Error:", err));
                     return () => unsubscribe();
                 } catch (err) { console.error(err); }
             }, [user, workspaceId]);
@@ -190,20 +180,15 @@
                     const { getFirestore, doc, setDoc } = window.FirebaseSDK;
                     const db = getFirestore();
                     setDoc(doc(db, 'artifacts', appId, 'public', 'data', workspaceId), newData)
-                        .catch(e => console.error("Cloud Save Error:", e));
+                        .catch(e => console.error("Save Error:", e));
                 } else {
                     localStorage.setItem('my-bmc-data', JSON.stringify(newData));
                 }
             };
 
             const enableCloudSync = async () => {
-                const config = getFirebaseConfig();
-                if (!config) {
-                    alert("Configuração em falta! Verifique os dados do Firebase no código.");
-                    return;
-                }
                 if (!isAuthReady) {
-                    alert("A ligar ao servidor... Tente novamente em segundos.");
+                    alert("Ainda a ligar ao servidor... Tente novamente em segundos.");
                     return;
                 }
                 try {
@@ -224,12 +209,29 @@
                 }
             };
 
+            const exportCSV = () => {
+                const headers = ["Bloco", "Conteúdo"];
+                const rows = [
+                    ["Parcerias", data.partners], ["Atividades", data.activities], ["Recursos", data.resources],
+                    ["Proposta Valor", data.propositions], ["Relacionamento", data.relationships],
+                    ["Canais", data.channels], ["Segmentos", data.segments], ["Custos", data.costs], ["Receitas", data.revenue]
+                ];
+                const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers.join(",") + "\n" + 
+                                  rows.map(e => e.map(val => `"${(val || '').replace(/"/g, '""')}"`).join(",")).join("\n");
+                const link = document.createElement("a");
+                link.setAttribute("href", encodeURI(csvContent));
+                link.setAttribute("download", `bmc_export_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
             if (isAppLoading) {
                 return (
-                    <div className="min-h-screen flex items-center justify-center">
+                    <div className="min-h-screen flex items-center justify-center bg-gray-50">
                         <div className="flex flex-col items-center gap-4">
                             <div className="loading-spinner"></div>
-                            <p className="text-gray-400 text-sm font-medium">A conectar...</p>
+                            <p className="text-gray-400 text-sm font-medium">A sincronizar...</p>
                         </div>
                     </div>
                 );
@@ -242,7 +244,7 @@
                             <div>
                                 <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
                                     Business Model Canvas
-                                    {isSyncing && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Sincronizado</span>}
+                                    {isSyncing && <span className="text-xs bg-green-500 text-white px-2 py-1 rounded-full font-bold">LIVE</span>}
                                 </h1>
                                 <p className="text-slate-500 text-sm">Modele a sua estratégia e aceda no Notion.</p>
                             </div>
@@ -253,11 +255,15 @@
                                         <i data-lucide="cloud" className="w-4 h-4"></i> ATIVAR SINCRONIZAÇÃO
                                     </button>
                                 ) : (
-                                    <button onClick={() => setShowSyncModal(true)} className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-all text-sm font-bold">
-                                        <i data-lucide="share-2" className="w-4 h-4"></i> LINK DE ACESSO
+                                    <button onClick={() => setShowSyncModal(true)} className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-all text-sm font-bold">
+                                        <i data-lucide="share-2" className="w-4 h-4"></i> VER LINK
                                     </button>
                                 )}
-                                <button onClick={() => window.print()} className="p-2 bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 shadow-sm">
+                                <div className="h-8 w-px bg-gray-200 mx-1"></div>
+                                <button onClick={exportCSV} className="p-2 bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 shadow-sm" title="Exportar Excel">
+                                    <i data-lucide="table" className="w-5 h-5 text-green-600"></i>
+                                </button>
+                                <button onClick={() => window.print()} className="p-2 bg-white text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 shadow-sm" title="PDF">
                                     <i data-lucide="printer" className="w-5 h-5"></i>
                                 </button>
                             </div>
