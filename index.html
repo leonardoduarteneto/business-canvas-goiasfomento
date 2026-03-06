@@ -53,34 +53,29 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
     :root {
-      --bg: #f8fafc;
+      --bg: #f5f7fb;
       --card: #ffffff;
+      --line: #dbe3ef;
+      --line-strong: #60a5fa;
+      --text: #1e293b;
       --muted: #64748b;
-      --line: #e2e8f0;
-      --blue: #1d4ed8;
-      --blue-soft: #eff6ff;
-      --green: #16a34a;
-      --amber: #d97706;
-      --red: #dc2626;
-      --shadow: 0 10px 30px rgba(2, 6, 23, 0.06);
+      --muted-light: #94a3b8;
+      --title: #1d4ed8;
     }
 
     * {
       box-sizing: border-box;
     }
 
-    body {
-      font-family: 'Inter', sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(59,130,246,0.06), transparent 30%),
-        radial-gradient(circle at top right, rgba(16,185,129,0.04), transparent 28%),
-        var(--bg);
-      color: #0f172a;
+    html, body {
+      margin: 0;
+      padding: 0;
     }
 
-    .glass {
-      background: rgba(255,255,255,0.72);
-      backdrop-filter: blur(10px);
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
 
     .loading-spinner {
@@ -92,9 +87,14 @@
       animation: spin 1s linear infinite;
     }
 
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
     .bmc-textarea {
       scrollbar-width: thin;
-      scrollbar-color: #cbd5e1 transparent;
+      scrollbar-color: #94a3b8 transparent;
     }
 
     .bmc-textarea::-webkit-scrollbar {
@@ -102,18 +102,17 @@
     }
 
     .bmc-textarea::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 8px;
+      background: #94a3b8;
+      border-radius: 999px;
     }
 
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    .bmc-textarea::placeholder {
+      color: #94a3b8;
     }
 
     @media print {
       body {
-        background: #fff !important;
+        background: white !important;
       }
 
       .no-print {
@@ -121,24 +120,20 @@
       }
 
       .print-shell {
-        padding: 0 !important;
-        margin: 0 !important;
         max-width: 100% !important;
-      }
-
-      .print-grid {
-        gap: 4px !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
       }
 
       .print-card {
-        border: 1px solid #cbd5e1 !important;
         box-shadow: none !important;
         break-inside: avoid;
         page-break-inside: avoid;
       }
 
-      .print-title {
-        font-size: 26px !important;
+      .print-grid {
+        gap: 10px !important;
       }
 
       textarea {
@@ -171,7 +166,7 @@
     };
 
     const APP_ID = "bmc-app-default";
-    const LOCAL_KEY = "my-bmc-data-v2";
+    const LOCAL_KEY = "my-bmc-data-v3-clean";
 
     const EMPTY_DATA = {
       partners: "",
@@ -218,72 +213,6 @@
       }, [...deps, delay]);
     }
 
-    const BLOCKS = [
-      {
-        key: "partners",
-        title: "Parcerias",
-        icon: "users",
-        description: "Principais parceiros, fornecedores e alianças estratégicas.",
-        className: "md:row-span-2"
-      },
-      {
-        key: "activities",
-        title: "Atividades",
-        icon: "zap",
-        description: "As ações essenciais que sustentam a operação e a entrega de valor.",
-        className: "flex-1"
-      },
-      {
-        key: "resources",
-        title: "Recursos",
-        icon: "box",
-        description: "Recursos críticos: equipa, tecnologia, marca, capital, processos.",
-        className: "flex-1"
-      },
-      {
-        key: "propositions",
-        title: "Proposta de Valor",
-        icon: "gift",
-        description: "O principal valor entregue ao cliente. Por que ele escolhe você?",
-        className: "md:row-span-2"
-      },
-      {
-        key: "relationships",
-        title: "Relacionamento",
-        icon: "heart",
-        description: "Como a empresa se relaciona e retém clientes.",
-        className: "flex-1"
-      },
-      {
-        key: "channels",
-        title: "Canais",
-        icon: "send",
-        description: "Como a proposta de valor chega até o cliente.",
-        className: "flex-1"
-      },
-      {
-        key: "segments",
-        title: "Segmentos",
-        icon: "target",
-        description: "Quem são os clientes ou públicos prioritários.",
-        className: "md:row-span-2"
-      },
-      {
-        key: "costs",
-        title: "Custos",
-        icon: "pie-chart",
-        description: "Custos mais relevantes para operar e crescer.",
-        className: "md:col-span-3"
-      },
-      {
-        key: "revenue",
-        title: "Receitas",
-        icon: "trending-up",
-        description: "Fontes de receita, monetização e retorno financeiro.",
-        className: "md:col-span-2"
-      }
-    ];
-
     function StatusBadge({ status }) {
       const map = {
         idle: {
@@ -299,7 +228,7 @@
           cls: "bg-green-50 text-green-700 border-green-200"
         },
         error: {
-          label: "Erro ao salvar",
+          label: "Erro",
           cls: "bg-red-50 text-red-700 border-red-200"
         }
       };
@@ -320,35 +249,44 @@
       return (
         <div
           className={cn(
-            "print-card flex flex-col rounded-2xl border p-4 md:p-5 bg-white shadow-sm transition-all duration-200",
-            "hover:shadow-md hover:-translate-y-[1px]",
-            highlight ? "border-blue-200 bg-blue-50/60" : "border-slate-200",
+            "print-card flex flex-col rounded-2xl border bg-white p-4 md:p-4 transition-all duration-200",
+            highlight ? "border-blue-400" : "border-slate-300",
+            "hover:border-blue-300",
             className
           )}
         >
           <div className="flex items-start justify-between gap-3 mb-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center shrink-0",
-                highlight ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"
-              )}>
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-slate-100 text-blue-600">
                 <i data-lucide={iconName} className="w-4 h-4"></i>
               </div>
 
               <div className="min-w-0">
-                <h3 className="text-xs md:text-sm font-extrabold uppercase tracking-[0.12em] text-slate-800">
+                <h3 className="text-xs md:text-sm font-extrabold uppercase tracking-[0.10em] text-blue-700">
                   {title}
                 </h3>
-                <p className="text-[11px] md:text-xs text-slate-500 leading-relaxed mt-1">
+                <p className="text-[11px] md:text-xs text-slate-400 leading-relaxed mt-1 max-w-[220px]">
                   {description}
                 </p>
+              </div>
+            </div>
+
+            <div className="group relative no-print shrink-0 mt-0.5">
+              <i data-lucide="info" className="w-4 h-4 text-slate-400 cursor-help hover:text-blue-500"></i>
+              <div className="absolute right-0 top-6 w-64 p-3 bg-slate-800 text-white text-[11px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-50 pointer-events-none shadow-xl">
+                {description}
               </div>
             </div>
           </div>
 
           <textarea
-            className="bmc-textarea flex-1 w-full min-h-[135px] md:min-h-[150px] resize-none rounded-xl border border-slate-200 bg-white/80 px-3 py-3 text-sm leading-6 text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
-            placeholder="Escreva aqui..."
+            className={cn(
+              "bmc-textarea flex-1 w-full min-h-[150px] resize-none bg-transparent",
+              "text-sm leading-8 text-slate-700",
+              "outline-none border-none ring-0 focus:ring-0 focus:outline-none",
+              "placeholder:text-slate-400 px-0 py-0"
+            )}
+            placeholder="Clique para preencher..."
             value={value}
             onChange={(e) => onChange(e.target.value)}
           />
@@ -369,7 +307,6 @@
       const [firebaseError, setFirebaseError] = useState("");
       const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
-      const isInitialRemoteLoad = useRef(true);
       const suppressNextSave = useRef(false);
 
       const sharedUrl = useMemo(() => {
@@ -434,6 +371,7 @@
 
           const params = new URLSearchParams(window.location.search);
           const ws = params.get("ws");
+
           if (ws) {
             setWorkspaceId(ws);
             setIsSyncing(true);
@@ -441,7 +379,7 @@
           }
         } catch (err) {
           console.error("Firebase init error:", err);
-          setFirebaseError("Falha ao inicializar o Firebase.");
+          setFirebaseError("Falha ao iniciar o Firebase.");
           setIsAppLoading(false);
         }
       }, [getFirebaseApp]);
@@ -478,21 +416,13 @@
               if (!snap.exists()) return;
 
               const remote = snap.data() || {};
-              const merged = { ...EMPTY_DATA, ...remote.data };
+              const merged = { ...EMPTY_DATA, ...(remote.data || {}) };
 
               suppressNextSave.current = true;
               setData(merged);
               persistLocal(merged);
-
-              if (remote.updatedAt) {
-                setLastUpdatedAt(new Date());
-              }
-
-              if (isInitialRemoteLoad.current) {
-                isInitialRemoteLoad.current = false;
-              }
-
               setSaveStatus("saved");
+              setLastUpdatedAt(new Date());
             },
             (err) => {
               console.error("onSnapshot error:", err);
@@ -553,7 +483,7 @@
             console.error("Save remote error:", err);
             if (!cancelled) {
               setSaveStatus("error");
-              setFirebaseError("Erro ao salvar na nuvem. Verifique as regras do Firestore.");
+              setFirebaseError("Erro ao salvar na nuvem.");
             }
           }
         }
@@ -636,11 +566,9 @@
           "data:text/csv;charset=utf-8,\uFEFF" +
           headers.join(",") +
           "\n" +
-          rows
-            .map((row) =>
-              row.map((v) => `"${String(v || "").replace(/"/g, '""')}"`).join(",")
-            )
-            .join("\n");
+          rows.map((row) =>
+            row.map((v) => `"${String(v || "").replace(/"/g, '""')}"`).join(",")
+          ).join("\n");
 
         const link = document.createElement("a");
         link.href = encodeURI(csv);
@@ -653,7 +581,6 @@
       const clearLocal = () => {
         const ok = window.confirm("Deseja limpar o Canvas local?");
         if (!ok) return;
-
         setData(EMPTY_DATA);
         persistLocal(EMPTY_DATA);
       };
@@ -672,14 +599,14 @@
       }
 
       return (
-        <div className="min-h-screen p-4 md:p-8">
-          <div className="print-shell max-w-7xl mx-auto">
-            <div className="glass rounded-[28px] border border-white/70 shadow-[0_20px_60px_rgba(15,23,42,0.08)] overflow-hidden">
-              <div className="px-5 md:px-8 pt-6 md:pt-8 pb-5 border-b border-slate-200/80 bg-white/70">
-                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5">
+        <div className="min-h-screen p-4 md:p-5">
+          <div className="print-shell max-w-[1400px] mx-auto">
+            <div className="rounded-[24px] border border-slate-200 bg-white overflow-hidden">
+              <div className="px-5 md:px-6 pt-5 md:pt-6 pb-4 border-b border-slate-200 bg-slate-50 no-print">
+                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
                   <div>
                     <div className="flex flex-wrap items-center gap-3 mb-2">
-                      <h1 className="print-title text-2xl md:text-4xl font-extrabold tracking-tight text-slate-900">
+                      <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
                         Business Model Canvas
                       </h1>
 
@@ -692,8 +619,8 @@
                       <StatusBadge status={saveStatus} />
                     </div>
 
-                    <p className="text-slate-600 text-sm md:text-base">
-                      Estruture a estratégia, sincronize na nuvem e exporte quando necessário.
+                    <p className="text-slate-600 text-sm">
+                      Estruture a estratégia, sincronize na nuvem e compartilhe quando necessário.
                     </p>
 
                     {firebaseError && (
@@ -704,11 +631,11 @@
                   </div>
 
                   <div className="flex flex-col md:items-end gap-3">
-                    <div className="flex flex-wrap gap-2 no-print">
+                    <div className="flex flex-wrap gap-2">
                       {!isSyncing ? (
                         <button
                           onClick={enableCloudSync}
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-semibold shadow-lg shadow-blue-100 hover:bg-blue-700 transition"
+                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
                         >
                           <i data-lucide="cloud" className="w-4 h-4"></i>
                           Ativar sincronização
@@ -717,7 +644,7 @@
                         <>
                           <button
                             onClick={() => setShowSyncModal(true)}
-                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-white text-blue-700 font-semibold hover:bg-blue-50 transition"
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition"
                           >
                             <i data-lucide="share-2" className="w-4 h-4"></i>
                             Compartilhar
@@ -767,8 +694,8 @@
                 </div>
               </div>
 
-              <div className="px-5 md:px-8 py-5 md:py-7 bg-slate-50/70">
-                <div className="print-grid grid grid-cols-1 md:grid-cols-5 gap-4 min-h-[780px]">
+              <div className="p-4 md:p-4 bg-[#f8fafc]">
+                <div className="print-grid grid grid-cols-1 md:grid-cols-5 gap-3 min-h-[760px]">
                   <BMCBlock
                     title="Parcerias"
                     iconName="users"
@@ -778,7 +705,7 @@
                     className="md:row-span-2"
                   />
 
-                  <div className="md:row-span-2 flex flex-col gap-4">
+                  <div className="md:row-span-2 flex flex-col gap-3">
                     <BMCBlock
                       title="Atividades"
                       iconName="zap"
@@ -807,7 +734,7 @@
                     highlight={true}
                   />
 
-                  <div className="md:row-span-2 flex flex-col gap-4">
+                  <div className="md:row-span-2 flex flex-col gap-3">
                     <BMCBlock
                       title="Relacionamento"
                       iconName="heart"
@@ -837,7 +764,7 @@
 
                   <BMCBlock
                     title="Custos"
-                    iconName="pie-chart"
+                    iconName="wallet"
                     description="Custos mais relevantes para operar e crescer."
                     value={data.costs}
                     onChange={(v) => updateField("costs", v)}
@@ -857,8 +784,8 @@
             </div>
 
             {showSyncModal && (
-              <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-[100] no-print">
-                <div className="w-full max-w-lg rounded-[28px] bg-white border border-slate-200 shadow-2xl p-7">
+              <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100] no-print">
+                <div className="w-full max-w-lg rounded-[24px] bg-white border border-slate-200 shadow-2xl p-7">
                   <div className="w-16 h-16 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center mb-5 mx-auto">
                     <i data-lucide="cloud-check" className="w-8 h-8"></i>
                   </div>
