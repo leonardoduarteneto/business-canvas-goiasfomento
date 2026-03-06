@@ -61,7 +61,7 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback } = React;
 
-        // Configuração Unificada (Assegure-se que o nome da variável condiz com o uso abaixo)
+        // Configuração Unificada
         const FIREBASE_CONFIG = {
             apiKey: "AIzaSyADm510HtxUFgGJIDenCxjCBWMSYhCIex0",
             authDomain: "bmc-goiasfomento.firebaseapp.com",
@@ -109,7 +109,6 @@
             const appId = 'bmc-app-default';
 
             const getFirebaseConfig = useCallback(() => {
-                // Ajustado para usar a variável FIREBASE_CONFIG definida no topo
                 if (FIREBASE_CONFIG && typeof FIREBASE_CONFIG === 'object') return FIREBASE_CONFIG;
                 return null;
             }, []);
@@ -198,6 +197,11 @@
             };
 
             const enableCloudSync = async () => {
+                const config = getFirebaseConfig();
+                if (!config) {
+                    alert("Configuração em falta! Verifique os dados do Firebase no código.");
+                    return;
+                }
                 if (!isAuthReady) {
                     alert("A ligar ao servidor... Tente novamente em segundos.");
                     return;
