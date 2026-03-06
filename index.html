@@ -38,7 +38,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef } = React;
 
         const BMCBlock = ({ title, iconName, description, value, onChange, className = "" }) => {
             return (
@@ -74,76 +74,98 @@
             const [workspaceId, setWorkspaceId] = useState(null);
             const [isSyncing, setIsSyncing] = useState(false);
             const [showSyncModal, setShowSyncModal] = useState(false);
+            const [lastSaved, setLastSaved] = useState(null);
 
             const appId = typeof __app_id !== 'undefined' ? __app_id : 'bmc-app-default';
 
-            // Inicialização Firebase
+            // Inicialização e Carregamento Local
             useEffect(() => {
-                if (!window.FirebaseSDK) return;
-                const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore } = window.FirebaseSDK;
-                
-                const firebaseConfig = JSON.parse(__firebase_config);
-                const app = initializeApp(firebaseConfig);
-                const auth = getAuth(app);
-                
-                const initAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
+                // Tentar carregar dados locais primeiro para evitar tela branca
+                const saved = localStorage.getItem('my-bmc-data');
+                if (saved) setData(JSON.parse(saved));
+
+                // Inicializar Icons
+                setTimeout(() => lucide.createIcons(), 100);
+
+                // Firebase Initialization com Check de Segurança
+                const initCloud = async () => {
+                    if (typeof window.FirebaseSDK === 'undefined' || typeof __firebase_config === 'undefined') {
+                        console.log("Firebase não configurado ou indisponível.");
+                        return;
+                    }
+
+                    try {
+                        const { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } = window.FirebaseSDK;
+                        const firebaseConfig = JSON.parse(__firebase_config);
+                        const app = initializeApp(firebaseConfig);
+                        const auth = getAuth(app);
+                        
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+
+                        onAuthStateChanged(auth, setUser);
+
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const id = urlParams.get('ws');
+                        if (id) {
+                            setWorkspaceId(id);
+                            setIsSyncing(true);
+                        }
+                    } catch (err) {
+                        console.error("Erro ao inicializar nuvem:", err);
                     }
                 };
-                initAuth();
 
-                const unsubscribe = onAuthStateChanged(auth, setUser);
-
-                // Verificar se existe um workspace no URL
-                const urlParams = new URLSearchParams(window.location.search);
-                const id = urlParams.get('ws');
-                if (id) {
-                    setWorkspaceId(id);
-                    setIsSyncing(true);
-                } else {
-                    // Se não houver cloud, carregar local
-                    const saved = localStorage.getItem('my-bmc-data');
-                    if (saved) setData(JSON.parse(saved));
-                }
-
-                return () => unsubscribe();
+                initCloud();
             }, []);
 
-            // Escuta dados da nuvem
+            // Escuta dados da nuvem (Firestore)
             useEffect(() => {
-                if (!user || !workspaceId || !window.FirebaseSDK) return;
-                const { getFirestore, doc, onSnapshot } = window.FirebaseSDK;
-                const db = getFirestore();
+                if (!user || !workspaceId || typeof window.FirebaseSDK === 'undefined') return;
+                
+                try {
+                    const { getFirestore, doc, onSnapshot } = window.FirebaseSDK;
+                    const db = getFirestore();
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', workspaceId);
+                    
+                    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            setData(docSnap.data());
+                        }
+                    }, (error) => console.error("Erro na sincronização:", error));
 
-                const docRef = doc(db, 'artifacts', appId, 'public', 'data', workspaceId);
-                const unsubscribe = onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        setData(docSnap.data());
-                    }
-                }, (error) => console.error("Erro na nuvem:", error));
-
-                return () => unsubscribe();
+                    return () => unsubscribe();
+                } catch (err) {
+                    console.error("Erro ao configurar listener:", err);
+                }
             }, [user, workspaceId]);
 
+            // Refresh Icons ao mudar dados
             useEffect(() => {
                 lucide.createIcons();
-            }, [data, isSyncing]);
+            }, [data, isSyncing, showSyncModal]);
 
             const handleUpdateData = (newData) => {
                 setData(newData);
-                if (isSyncing && user && workspaceId) {
+                if (isSyncing && user && workspaceId && typeof window.FirebaseSDK !== 'undefined') {
                     const { getFirestore, doc, setDoc } = window.FirebaseSDK;
                     const db = getFirestore();
-                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', workspaceId), newData);
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', workspaceId), newData)
+                        .catch(err => console.error("Falha ao salvar na nuvem:", err));
                 } else {
                     localStorage.setItem('my-bmc-data', JSON.stringify(newData));
+                    setLastSaved(new Date().toLocaleTimeString());
                 }
             };
 
             const enableCloudSync = () => {
+                if (typeof window.FirebaseSDK === 'undefined') {
+                    alert("A sincronização em nuvem não está disponível neste ambiente.");
+                    return;
+                }
                 const newId = Math.random().toString(36).substring(2, 15);
                 const newUrl = new URL(window.location.href);
                 newUrl.searchParams.set('ws', newId);
@@ -152,7 +174,6 @@
                 setIsSyncing(true);
                 setShowSyncModal(true);
                 
-                // Salvar dados atuais na nuvem imediatamente
                 const { getFirestore, doc, setDoc } = window.FirebaseSDK;
                 const db = getFirestore();
                 setDoc(doc(db, 'artifacts', appId, 'public', 'data', newId), data);
@@ -171,6 +192,33 @@
 
             const exportPDF = () => window.print();
 
+            const exportCSV = () => {
+                const headers = ["Bloco", "Conteudo"];
+                const rows = [
+                    ["Parcerias Principais", data.partners],
+                    ["Atividades-Chave", data.activities],
+                    ["Recursos Principais", data.resources],
+                    ["Propostas de Valor", data.propositions],
+                    ["Relacionamento com Clientes", data.relationships],
+                    ["Canais", data.channels],
+                    ["Segmentos de Clientes", data.segments],
+                    ["Estrutura de Custos", data.costs],
+                    ["Fluxos de Receita", data.revenue]
+                ];
+
+                const csvContent = "data:text/csv;charset=utf-8," 
+                    + headers.join(",") + "\n"
+                    + rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(",")).join("\n");
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `bmc_export_${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
             return (
                 <div className="min-h-screen p-4 md:p-8">
                     <div className="max-w-7xl mx-auto">
@@ -180,30 +228,38 @@
                                     Business Model Canvas
                                     {isSyncing && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-normal">Nuvem Ativa</span>}
                                 </h1>
-                                <p className="text-gray-500 text-sm">Estrutura estratégica acessível em qualquer lugar</p>
+                                <p className="text-gray-500 text-sm">Visualize e exporte a sua estratégia de negócio</p>
                             </div>
                             
                             <div className="flex flex-wrap items-center gap-2 no-print">
                                 {!isSyncing && (
                                     <button onClick={enableCloudSync} className="flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-all text-sm font-semibold shadow-sm">
-                                        <i data-lucide="cloud" className="w-4 h-4"></i> Ativar Sincronização
+                                        <i data-lucide="cloud" className="w-4 h-4"></i> Ativar Nuvem
                                     </button>
                                 )}
                                 {isSyncing && (
                                     <button onClick={() => setShowSyncModal(true)} className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-all text-sm font-semibold shadow-sm">
-                                        <i data-lucide="link" className="w-4 h-4"></i> Partilhar Link
+                                        <i data-lucide="link" className="w-4 h-4"></i> Link de Acesso
                                     </button>
                                 )}
                                 
                                 <div className="h-6 w-px bg-gray-200 mx-1"></div>
 
-                                <button onClick={exportPDF} title="PDF" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-200">
-                                    <i data-lucide="file-text" className="w-5 h-5"></i>
+                                <button onClick={exportCSV} title="Exportar Excel/Sheets" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-200 flex items-center gap-2 px-3">
+                                    <i data-lucide="table" className="w-4 h-4 text-green-600"></i>
+                                    <span className="hidden sm:inline text-xs font-bold">Excel</span>
+                                </button>
+
+                                <button onClick={exportPDF} title="PDF" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-200 flex items-center gap-2 px-3">
+                                    <i data-lucide="file-text" className="w-4 h-4 text-red-500"></i>
+                                    <span className="hidden sm:inline text-xs font-bold">PDF</span>
                                 </button>
 
                                 <button onClick={handleClear} title="Limpar" className="p-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-100">
                                     <i data-lucide="trash-2" className="w-5 h-5"></i>
                                 </button>
+                                
+                                {!isSyncing && lastSaved && <span className="text-[10px] text-gray-400 block w-full text-right mt-1">Salvo: {lastSaved}</span>}
                             </div>
                         </header>
 
@@ -215,7 +271,7 @@
                                 <BMCBlock className="flex-1" title="Recursos" iconName="briefcase" description="Ativos necessários." value={data.resources} onChange={(v) => handleUpdateData({...data, resources: v})} />
                             </div>
 
-                            <BMCBlock className="md:row-span-2 bg-blue-50 border-blue-200" title="Proposta de Valor" iconName="gift" description="Que valor entregamos?" value={data.propositions} onChange={(v) => handleUpdateData({...data, propositions: v})} />
+                            <BMCBlock className="md:row-span-2 bg-blue-50 border-blue-200 shadow-inner" title="Proposta de Valor" iconName="gift" description="Que valor entregamos?" value={data.propositions} onChange={(v) => handleUpdateData({...data, propositions: v})} />
 
                             <div className="md:row-span-2 flex flex-col gap-3">
                                 <BMCBlock className="flex-1" title="Relacionamento" iconName="heart" description="Relação com clientes." value={data.relationships} onChange={(v) => handleUpdateData({...data, relationships: v})} />
@@ -227,24 +283,35 @@
                             <BMCBlock className="md:col-span-3" title="Custos" iconName="credit-card" description="Custos mais importantes." value={data.costs} onChange={(v) => handleUpdateData({...data, costs: v})} />
                             <BMCBlock className="md:col-span-2" title="Receitas" iconName="trending-up" description="Fontes de receita." value={data.revenue} onChange={(v) => handleUpdateData({...data, revenue: v})} />
                         </div>
+                        
+                        <footer className="mt-8 text-center text-gray-400 text-[10px] no-print uppercase tracking-widest">
+                            Baseado no método de Alexander Osterwalder
+                        </footer>
                     </div>
 
                     {/* Modal de Sincronização */}
                     {showSyncModal && (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[100] no-print">
-                            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-                                <h3 className="text-xl font-bold mb-2">Sincronização Ativa! 🚀</h3>
-                                <p className="text-gray-600 text-sm mb-4">
-                                    Para aceder a estes dados noutro computador (ou no trabalho), use este URL específico:
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] no-print">
+                            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-gray-100">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="bg-blue-100 p-2 rounded-lg text-blue-600">
+                                        <i data-lucide="cloud" className="w-6 h-6"></i>
+                                    </div>
+                                    <h3 className="text-xl font-bold">Nuvem Ativada!</h3>
+                                </div>
+                                <p className="text-gray-600 text-sm mb-4 leading-relaxed">
+                                    Use o link abaixo para aceder aos seus dados em qualquer lugar (Casa, Trabalho ou Telemóvel):
                                 </p>
-                                <div className="bg-gray-100 p-3 rounded-lg break-all text-xs font-mono text-blue-600 mb-4 select-all border border-gray-200">
+                                <div className="bg-gray-50 p-4 rounded-xl break-all text-xs font-mono text-blue-700 mb-4 border border-blue-100 select-all">
                                     {window.location.href}
                                 </div>
-                                <p className="text-xs text-amber-600 mb-6 bg-amber-50 p-2 rounded">
-                                    <strong>Atenção:</strong> Guarde este link. Qualquer pessoa com ele poderá ver o seu Canvas.
-                                </p>
-                                <button onClick={() => setShowSyncModal(false)} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors">
-                                    Entendido
+                                <div className="flex gap-2 mb-6">
+                                    <div className="bg-amber-50 text-amber-700 p-3 rounded-lg text-[11px] border border-amber-100">
+                                        <strong>Dica:</strong> Guarde este URL nos seus favoritos ou no próprio Notion.
+                                    </div>
+                                </div>
+                                <button onClick={() => setShowSyncModal(false)} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95">
+                                    Começar a usar
                                 </button>
                             </div>
                         </div>
